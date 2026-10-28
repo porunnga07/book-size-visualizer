@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f8fafc">
+  <meta name="description" content="本の判型を重ね合わせ・横並びで比較できるインタラクティブなビジュアライザー。">
+  <title>本の判型・サイズ比較ビジュアライザー</title>
+  <style>
+    :root { font-family: system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif; color:#1c2938; background:#f5f7fa; }
+    * { box-sizing:border-box; }
+    body { margin:0; }
+    .wrap { max-width:900px; margin:0 auto; padding:28px 16px 50px; }
+    header { margin-bottom:20px; }
+    h1 { font-size:clamp(1.35rem,4vw,2rem); margin:0 0 9px; line-height:1.35; }
+    h2 { margin:0; font-size:1.05rem; }
+    p { margin:0; }
+    .muted { color:#5c697b; }
+    .small { font-size:.84rem; line-height:1.65; }
+    .panel { background:white; border:1px solid #dbe2ea; border-radius:16px; padding:18px; margin-bottom:16px; }
+    .topline { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+    .badge { padding:7px 10px; background:#eef2f7; border-radius:8px; font-size:.76rem; color:#5c697b; }
+    button { font:inherit; cursor:pointer; border:1px solid #c9d3df; color:#243244; background:#fff; border-radius:10px; padding:10px 14px; min-height:44px; }
+    button:hover { background:#f1f5f9; }
+    button[aria-pressed="true"] { background:#e4efff; border-color:#2365bb; color:#124b93; font-weight:700; }
+    button:focus-visible,input:focus-visible,.bookrect:focus-visible { outline:3px solid #2175d9; outline-offset:3px; }
+    .controls { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 16px; }
+    .checks { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+    .check { display:flex; align-items:center; gap:9px; min-width:0; min-height:48px; padding:10px; border:1px solid #d4dce6; border-radius:10px; cursor:pointer; }
+    .check:has(input:checked) { background:#ecf4ff; border-color:#7da9df; }
+    input[type="checkbox"] { accent-color:#246abb; width:18px; height:18px; flex-shrink:0; }
+    .extras { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:14px; }
+    .extras label { margin-left:auto; display:flex; gap:8px; align-items:center; cursor:pointer; padding:8px 2px; }
+    .chartbox { border:1px solid #dbe2ea; border-radius:14px; background:#fff; padding:10px; margin-bottom:16px; }
+    svg { display:block; width:100%; height:auto; }
+    svg text { font-family:inherit; }
+    .bookrect { cursor:pointer; stroke-width:2.2; }
+    .bookrect:focus { stroke:#195cad; stroke-width:4; }
+    .tip { text-align:center; margin:5px 5px 2px; }
+    .detail { border-radius:12px; background:#ecf2f8; padding:16px; display:grid; gap:7px; }
+    .detail-title { font-weight:750; font-size:1.13rem; }
+    .detail-title span { font-size:1rem; font-weight:450; }
+    footer { color:#5c697b; padding:0 4px; }
+    @media(max-width:600px) { .wrap{padding:20px 12px 32px}.panel{padding:13px}.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.extras label{margin-left:0}.chartbox{padding:5px} }
+  </style>
+</head>
+<body>
+<main class="wrap" id="bookviz">
+  <header>
+    <h1>📚 本の判型・サイズ比較ビジュアライザー</h1>
+    <p class="muted">A4判・B5判・A5判・菊判・四六判・B6判・新書判・A6判（文庫）の大きさを比較できます。</p>
+  </header>
+  <section class="panel" aria-label="比較の設定">
+    <div class="topline"><div><h2>判型の大きさを比較</h2><p class="small muted">縦横の比率と面積を実寸比で表示</p></div><span class="badge">寸法の単位：mm</span></div>
+    <div class="controls" role="group" aria-label="表示方式">
+      <button type="button" class="mode" data-mode="overlay" aria-pressed="true">重ね合わせ</button>
+      <button type="button" class="mode" data-mode="side" aria-pressed="false">横並び</button>
+    </div>
+    <div class="checks" id="bookchecks">
+      <label class="check"><input type="checkbox" value="A4" checked>A4判</label>
+      <label class="check"><input type="checkbox" value="B5" checked>B5判</label>
+      <label class="check"><input type="checkbox" value="A5" checked>A5判</label>
+      <label class="check"><input type="checkbox" value="Kiku">菊判</label>
+      <label class="check"><input type="checkbox" value="46" checked>四六判</label>
+      <label class="check"><input type="checkbox" value="B6">B6判</label>
+      <label class="check"><input type="checkbox" value="Shinsho" checked>新書判</label>
+      <label class="check"><input type="checkbox" value="A6" checked>A6判（文庫）</label>
+    </div>
+    <div class="extras">
+      <button type="button" id="allbooks">すべて選択</button>
+      <button type="button" id="resetbooks">初期状態</button>
+      <label><input type="checkbox" id="showGrid" checked>50mm方眼</label>
+    </div>
+  </section>
+  <section aria-label="比較図">
+    <div class="chartbox">
+      <svg id="booksvg" viewBox="0 0 680 420" role="img" aria-label="選択した判型を縦横の実寸比で比較する図"></svg>
+      <p class="tip small muted" id="booktip">図の長方形や凡例を選択すると、判型の詳細が表示されます。</p>
+    </div>
+    <div class="detail" id="bookdetail" aria-live="polite">
+      <p class="small muted">選択中の判型</p><p class="detail-title">A4判 <span>210 × 297 mm</span></p>
+      <p>面積：623.7 cm²</p><p>主な用途：写真集、資料集、実用書</p>
+    </div>
+  </section>
+  <footer class="small" style="margin-top:18px">
+    ※ 菊判は152 × 218mm、四六判は127 × 188mm、新書判は103 × 173mmとして表示しています。実際の寸法は出版社や製本仕様で多少異なります。図は実物大ではなく、判型間の相対比を保っています。<br>
+    ※ 「横並び」は判型ごとの輪郭を見やすくした配置で、同じ縮尺で描画しています。
+  </footer>
+</main>
+<script>
+(() => {
+  'use strict';
+  const root = document.getElementById('bookviz');
+  const svg = document.getElementById('booksvg');
+  const ns = 'http://www.w3.org/2000/svg';
+  const specs = [
+    {id:'A4',name:'A4判',w:210,h:297,use:'写真集、資料集、実用書',col:'#6b9fc5'},
+    {id:'B5',name:'B5判',w:182,h:257,use:'漫画雑誌、技術書、参考書',col:'#72ae89'},
+    {id:'A5',name:'A5判',w:148,h:210,use:'学術書、技術書、実用書',col:'#d99d62'},
+    {id:'Kiku',name:'菊判',w:152,h:218,use:'文芸書、学術書',col:'#9379bf'},
+    {id:'46',name:'四六判',w:127,h:188,use:'一般小説、エッセイ、ビジネス書',col:'#dc858c'},
+    {id:'B6',name:'B6判',w:128,h:182,use:'青年漫画、一般書',col:'#68b1b1'},
+    {id:'Shinsho',name:'新書判',w:103,h:173,use:'教養新書、解説書',col:'#b0a04e'},
+    {id:'A6',name:'A6判（文庫）',w:105,h:148,use:'文庫小説、ライトノベル',col:'#a58dca'}
+  ];
+  const initial = new Set(['A4','B5','A5','46','Shinsho','A6']);
+  let mode='overlay';
+  let active='A4';
+  function el(tag, attributes, label, parent=svg) {
+    const node=document.createElementNS(ns,tag);
+    for(const [key,val] of Object.entries(attributes||{})) node.setAttribute(key,String(val));
+    if(label!==undefined) node.textContent=label;
+    parent.appendChild(node);
+    return node;
+  }
+  function selected(){return specs.filter(s=>root.querySelector('input[value="'+s.id+'"]').checked);}
+  function choose(id){active=id;draw();}
+  function activateByKeyboard(node,id){node.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();choose(id);}});}
+  function showDetail(){
+    const s=specs.find(x=>x.id===active);
+    const box=document.getElementById('bookdetail');
+    box.replaceChildren();
+    const a=document.createElement('p');a.className='small muted';a.textContent='選択中の判型';box.appendChild(a);
+    const b=document.createElement('p');b.className='detail-title';b.textContent=s.name+'  ';
+    const span=document.createElement('span');span.textContent=s.w+' × '+s.h+' mm';b.appendChild(span);box.appendChild(b);
+    const c=document.createElement('p');c.textContent='面積：'+(s.w*s.h/100).toFixed(1)+' cm²　／　A4判の '+Math.round(s.w*s.h/(210*297)*100)+'%';box.appendChild(c);
+    const d=document.createElement('p');d.textContent='主な用途：'+s.use;box.appendChild(d);
+  }
+  function bookRect(s,x,y,width,height){
+    const r=el('rect',{x,y,width,height,rx:2,fill:s.col,'fill-opacity':s.id===active?.35:.16,stroke:s.id===active?'#195cad':s.col,class:'bookrect',tabindex:0,role:'button','aria-label':s.name+' '+s.w+'×'+s.h+'ミリメートル'});
+    r.addEventListener('click',()=>choose(s.id));activateByKeyboard(r,s.id);
+  }
+  function draw(){
+    const arr=selected();
+    if(!arr.some(s=>s.id===active))active=arr[0]?.id||null;
+    svg.replaceChildren();
+    if(arr.length===0){svg.setAttribute('viewBox','0 0 680 160');el('text',{x:340,y:83,'text-anchor':'middle','font-size':18,fill:'#58677a'},'判型を1つ以上選択してください');document.getElementById('bookdetail').textContent='比較する判型が選択されていません。';return;}
+    const grid=document.getElementById('showGrid').checked;
+    if(mode==='overlay'){
+      svg.setAttribute('viewBox','0 0 680 420');
+      const scale=1.12,bx=55,by=375;
+      if(grid){
+        for(let v=0;v<=300;v+=50){
+          const x=bx+v*scale,y=by-v*scale;
+          el('line',{x1:x,y1:by,x2:x,y2:by-320*scale,stroke:'#d5dee9','stroke-dasharray':'3 5'});
+          el('line',{x1:bx,y1:y,x2:bx+240*scale,y2:y,stroke:'#d5dee9','stroke-dasharray':'3 5'});
+          if(v<=250)el('text',{x,y:398,'text-anchor':'middle','font-size':11,fill:'#64748b'},String(v));
+        }
+        el('text',{x:195,y:414,'text-anchor':'middle','font-size':11,fill:'#64748b'},'横幅 (mm)');
+      }
+      el('line',{x1:bx,y1:by,x2:bx+250*scale,y2:by,stroke:'#64748b'});
+      el('line',{x1:bx,y1:by,x2:bx,y2:by-310*scale,stroke:'#64748b'});
+      arr.slice().sort((a,b)=>b.w*b.h-a.w*a.h).forEach(s=>bookRect(s,bx,by-s.h*scale,s.w*scale,s.h*scale));
+      arr.forEach((s,i)=>{
+        const y=55+i*40;
+        el('rect',{x:364,y:y-13,width:12,height:12,rx:2,fill:s.col});
+        const t=el('text',{x:385,y:y-2,'font-size':13,fill:s.id===active?'#17283a':'#556579','font-weight':s.id===active?700:400,role:'button',tabindex:0},s.name+'  '+s.w+'×'+s.h);
+        t.style.cursor='pointer';t.addEventListener('click',()=>choose(s.id));activateByKeyboard(t,s.id);
+      });
+    }else{
+      const cols=Math.min(4,arr.length),rows=Math.ceil(arr.length/cols),cw=160,ch=345;
+      svg.setAttribute('viewBox','0 0 '+(cols*cw+24)+' '+(rows*ch+15));
+      arr.forEach((s,i)=>{
+        const col=i%cols,row=Math.floor(i/cols),x=14+col*cw,y=10+row*ch,scale=.85;
+        bookRect(s,x+(145-s.w*scale)/2,y+260-s.h*scale,s.w*scale,s.h*scale);
+        el('text',{x:x+72,y:y+286,'text-anchor':'middle','font-size':14,'font-weight':s.id===active?700:500,fill:'#17283a'},s.name);
+        el('text',{x:x+72,y:y+307,'text-anchor':'middle','font-size':12,fill:'#64748b'},s.w+' × '+s.h+' mm');
+      });
+    }
+    showDetail();
+  }
+  root.querySelectorAll('.mode').forEach(button=>button.addEventListener('click',()=>{
+    mode=button.dataset.mode;
+    root.querySelectorAll('.mode').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+    draw();
+  }));
+  root.querySelectorAll('#bookchecks input').forEach(c=>c.addEventListener('change',draw));
+  document.getElementById('showGrid').addEventListener('change',draw);
+  document.getElementById('allbooks').addEventListener('click',()=>{root.querySelectorAll('#bookchecks input').forEach(c=>c.checked=true);draw();});
+  document.getElementById('resetbooks').addEventListener('click',()=>{
+    root.querySelectorAll('#bookchecks input').forEach(c=>c.checked=initial.has(c.value));
+    mode='overlay';active='A4';document.getElementById('showGrid').checked=true;
+    root.querySelectorAll('.mode').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));
+    draw();
+  });
+  draw();
+})();
+</script>
+</body>
+</html>
